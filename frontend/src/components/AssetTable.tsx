@@ -33,9 +33,10 @@ export default function AssetTable({ assets, onEdit, onDelete }: AssetTableProps
                 <td className="p-4 text-gray-600">{asset.category}</td>
                 <td className="p-4 text-gray-600">
                   <span className={`px-2 py-1 rounded-full text-xs font-semibold 
-                    ${asset.condition === 'New' ? 'bg-green-100 text-green-800' : 
+                    ${asset.condition === 'Good' ? 'bg-green-100 text-green-800' : 
                       asset.condition === 'Fair' ? 'bg-yellow-100 text-yellow-800' : 
-                      'bg-red-100 text-red-800'}`}>
+                      asset.condition === 'Poor' ? 'bg-red-100 text-red-800' : 
+                      'bg-gray-100 text-gray-800'}`}>
                     {asset.condition}
                   </span>
                 </td>

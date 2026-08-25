@@ -1,13 +1,14 @@
 package com.example.backend.service;
 
-import com.example.backend.model.PhysicalAsset;
-import com.example.backend.repository.PhysicalAssetRepository;
-
+import java.util.Arrays;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+
+import com.example.backend.model.PhysicalAsset;
+import com.example.backend.repository.PhysicalAssetRepository;
 
 @Service
 public class PhysicalAssetService {
@@ -19,6 +20,15 @@ public class PhysicalAssetService {
         this.repository = repository;
     }
 
+    // Condition validation
+    private void validateCondition(String condition) {
+        List<String> allowedConditions = Arrays.asList("Good", "Fair", "Poor", "Unknown");
+
+        if (condition == null || !allowedConditions.contains(condition)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid condition. Must be Good, Fair, or Poor.");
+        }
+    }
+
     // Get all assets
     public List<PhysicalAsset> getAllAssets() {
         return repository.findAll();
@@ -26,6 +36,8 @@ public class PhysicalAssetService {
 
     // Add a new asset
     public PhysicalAsset addAsset(PhysicalAsset asset) {
+        validateCondition(asset.getCondition());
+
         return repository.save(asset);
     }
 
@@ -34,6 +46,8 @@ public class PhysicalAssetService {
         PhysicalAsset asset = repository.findById(id).orElseThrow(
             () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Asset not found")
         );
+
+        validateCondition(updateAsset.getCondition());
 
         asset.setName(updateAsset.getName());
         asset.setCategory(updateAsset.getCategory());

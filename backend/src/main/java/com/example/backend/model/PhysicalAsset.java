@@ -18,7 +18,7 @@ public class PhysicalAsset {
     private String category;
 
     @Column(name = "asset_condition", nullable = false, length = 50)
-    private String condition;
+    private String condition = "Unknown";
 
     @Column(length = 50)
     private String location;

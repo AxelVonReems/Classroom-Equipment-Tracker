@@ -11,15 +11,15 @@ interface AssetFormModalProps {
 export default function AssetFormModal({ isOpen, onClose, onSubmit, initialData }: AssetFormModalProps) {
   // Initialize the state directly from the props
   const [formData, setFormData] = useState({ 
-    name: initialData ? initialData.name : '', 
-    category: initialData ? initialData.category : '', 
-    condition: initialData ? initialData.condition : '', 
-    location: initialData ? initialData.location : '' 
+    name: initialData ? initialData.name : '',
+    category: initialData ? initialData.category : '',
+    condition: initialData ? initialData.condition : 'Unknown',
+    location: initialData ? initialData.location : ''
   });
 
   if (!isOpen) return null;
 
-  const isFormValid = formData.name.trim() !== '' && formData.category.trim() !== '' && formData.condition.trim() !== '' && formData.location.trim() !== '';
+  const isFormValid = formData.name.trim() !== '' && formData.category.trim() !== '' && formData.location.trim() !== '';
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -29,7 +29,17 @@ export default function AssetFormModal({ isOpen, onClose, onSubmit, initialData 
         <div className="space-y-4 mb-6">
           <input type="text" placeholder="Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border p-2 rounded" />
           <input type="text" placeholder="Category" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full border p-2 rounded" />
-          <input type="text" placeholder="Condition" value={formData.condition} onChange={e => setFormData({...formData, condition: e.target.value})} className="w-full border p-2 rounded" />
+          <select 
+            value={formData.condition} 
+            onChange={e => setFormData({...formData, condition: e.target.value})} 
+            className="w-full border p-2 rounded bg-white text-gray-700"
+          >
+            <option value="" disabled>Select Condition</option>
+            <option value="Unknown">Unknown</option>
+            <option value="Good">Good</option>
+            <option value="Fair">Fair</option>
+            <option value="Poor">Poor</option>
+          </select>
           <input type="text" placeholder="Location" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full border p-2 rounded" />
         </div>
 
