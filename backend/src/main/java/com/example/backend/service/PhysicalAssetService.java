@@ -31,7 +31,7 @@ public class PhysicalAssetService {
 
     // Get all assets
     public List<PhysicalAsset> getAllAssets() {
-        return repository.findAll();
+        return repository.findAllByOrderByIdAsc();
     }
 
     // Add a new asset

@@ -40,5 +40,4 @@ public class PhysicalAssetController {
     public void deleteAsset(@PathVariable Long id) {
         service.deleteAsset(id);
     }
-    
 }

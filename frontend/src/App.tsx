@@ -3,6 +3,8 @@ import type { PhysicalAsset } from './types/Asset';
 import AssetTable from './components/AssetTable';
 import AssetFormModal from './components/AssetFormModal';
 import ConfirmModal from './components/ConfirmModal';
+import { Plus, Loader2 } from 'lucide-react';
+import toast, { Toaster } from 'react-hot-toast';
 
 export default function App() {
   const [assets, setAssets] = useState<PhysicalAsset[]>([]);
@@ -34,33 +36,60 @@ export default function App() {
       method: method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(formData)
-    }).then(() => {
+    })
+    .then((response) => {
+      if (!response.ok) throw new Error('Failed to save the asset.');
+      return response.json();
+    })
+    .then(() => {
       fetchAssets();
       setIsFormModalOpen(false);
+      toast.success(isEditing ? 'Asset updated successfully!' : 'Asset added successfully!');
+    })
+    .catch((error) => {
+      toast.error(error.message || 'An error occurred while saving.');
     });
   };
 
   const handleConfirmDelete = () => {
     if (assetToDelete === null) return;
+
     fetch(`http://localhost:8080/api/assets/${assetToDelete}`, { method: 'DELETE' })
+      .then((response) => {
+        if (!response.ok) throw new Error('Failed to delete the asset.');
+      })
       .then(() => {
         fetchAssets();
         setIsDeleteModalOpen(false);
+        toast.success('Asset deleted successfully!');
+      })
+      .catch((error) => {
+        toast.error(error.message || 'An error occurred while deleting.');
       });
   };
 
-  if (loading) return <div className="p-8 text-center text-xl">Loading...</div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
+        <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
+        <p className="text-gray-500 font-medium text-lg">Loading equipment...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
+      <Toaster position="top-right" reverseOrder={false} toastOptions={{duration: 2000}}/>
+
       <div className="max-w-6xl mx-auto">
 
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800">Classroom Equipment Tracker</h1>
           <button 
             onClick={() => { setCurrentAsset(null); setIsFormModalOpen(true); }}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium cursor-pointer"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium cursor-pointer flex items-center gap-2"
           >
+            <Plus size={20} />
             Add new asset
           </button>
         </div>
