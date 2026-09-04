@@ -2,6 +2,7 @@ package com.example.backend.service;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -57,7 +58,7 @@ public class PhysicalAssetService {
 
         asset.setName(normalizeText(asset.getName()));
         asset.setCategory(normalizeText(asset.getCategory()));
-        asset.setLocation(normalizeText(asset.getCondition()));
+        asset.setLocation(normalizeText(asset.getLocation()));
 
         return repository.save(asset);
     }
@@ -89,8 +90,8 @@ public class PhysicalAssetService {
             return null;
         }
 
-        String trimmed = text.trim();
-
-        return trimmed.substring(0, 1).toUpperCase() + trimmed.substring(1).toLowerCase();
+        return Arrays.stream(text.trim().toLowerCase().split("\\s+"))
+            .map(word -> Character.toUpperCase(word.charAt(0)) + word.substring(1))
+            .collect(Collectors.joining(" "));
     }
 }

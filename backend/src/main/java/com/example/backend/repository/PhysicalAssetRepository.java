@@ -19,5 +19,4 @@ public interface PhysicalAssetRepository extends JpaRepository<PhysicalAsset, Lo
     )
 
     Page<PhysicalAsset> searchAssets(@Param("searchTerm") String searchParam, Pageable pageable);
-    // Page<PhysicalAsset> findAllByOrderByIdAsc(Pageable pageable);
 }
