@@ -3,6 +3,10 @@ package com.example.backend.service;
 import java.util.Arrays;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -30,35 +34,63 @@ public class PhysicalAssetService {
     }
 
     // Get all assets
-    public List<PhysicalAsset> getAllAssets() {
-        return repository.findAllByOrderByIdAsc();
+    public Page<PhysicalAsset> getAllAssets(String search, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("id").ascending());
+
+        if (search != null && !search.trim().isEmpty()) {
+            return repository.searchAssets(search.trim(), pageable);
+        }
+
+        return repository.findAll(pageable);
+    }
+
+    // Get one asset
+    public PhysicalAsset getAsset(Long id) {
+        return repository.findById(id).orElseThrow(
+            () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Asset with ID "  + id + " not found")
+        );
     }
 
     // Add a new asset
     public PhysicalAsset addAsset(PhysicalAsset asset) {
         validateCondition(asset.getCondition());
 
+        asset.setName(normalizeText(asset.getName()));
+        asset.setCategory(normalizeText(asset.getCategory()));
+        asset.setLocation(normalizeText(asset.getCondition()));
+
         return repository.save(asset);
     }
 
     // Update an existing asset
     public PhysicalAsset updateAsset(Long id, PhysicalAsset updateAsset) {
-        PhysicalAsset asset = repository.findById(id).orElseThrow(
+        PhysicalAsset existingAsset = repository.findById(id).orElseThrow(
             () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Asset not found")
         );
 
         validateCondition(updateAsset.getCondition());
 
-        asset.setName(updateAsset.getName());
-        asset.setCategory(updateAsset.getCategory());
-        asset.setCondition(updateAsset.getCondition());
-        asset.setLocation(updateAsset.getLocation());
+        existingAsset.setName(normalizeText(updateAsset.getName()));
+        existingAsset.setCategory(normalizeText(updateAsset.getCategory()));
+        existingAsset.setCondition(normalizeText(updateAsset.getCondition()));
+        existingAsset.setLocation(normalizeText(updateAsset.getLocation()));
 
-        return repository.save(asset);
+        return repository.save(existingAsset);
     }
 
     // Delete an asset
     public void deleteAsset(Long id) {
         repository.deleteById(id);
+    }
+
+    // Text Normalization Helper
+    private String normalizeText(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return null;
+        }
+
+        String trimmed = text.trim();
+
+        return trimmed.substring(0, 1).toUpperCase() + trimmed.substring(1).toLowerCase();
     }
 }

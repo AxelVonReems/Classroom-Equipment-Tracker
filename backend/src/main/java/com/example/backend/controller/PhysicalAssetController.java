@@ -2,9 +2,11 @@ package com.example.backend.controller;
 
 import com.example.backend.model.PhysicalAsset;
 import com.example.backend.service.PhysicalAssetService;
-import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import jakarta.validation.Valid;
+
+import org.springframework.web.bind.annotation.*;
+import org.springframework.data.domain.Page;
 
 @RestController
 @RequestMapping("/api/assets")
@@ -19,19 +21,29 @@ public class PhysicalAssetController {
 
     // GET: http://localhost:8080/api/assets
     @GetMapping
-    public List<PhysicalAsset> getAllAssets() {
-        return service.getAllAssets();
+    public Page<PhysicalAsset> getAllAssets(
+        @RequestParam(required = false) String search,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "10") int size
+    ) {
+        return service.getAllAssets(search, page, size);
+    }
+
+    // GET: http://localhost:8080/api/assets/{id}
+    @GetMapping("/{id}")
+    public PhysicalAsset getAsset(@PathVariable Long id) {
+        return service.getAsset(id);
     }
 
     // POST: http://localhost:8080/api/assets
     @PostMapping
-    public PhysicalAsset addAsset(@RequestBody PhysicalAsset asset) {
+    public PhysicalAsset addAsset(@Valid @RequestBody PhysicalAsset asset) {
         return service.addAsset(asset);
     }
 
     // PUT: http://localhost:8080/api/assets/{id}
     @PutMapping("/{id}")
-    public PhysicalAsset updateAsset(@PathVariable Long id, @RequestBody PhysicalAsset asset) {
+    public PhysicalAsset updateAsset(@PathVariable Long id, @Valid @RequestBody PhysicalAsset asset) {
         return service.updateAsset(id, asset);
     }
 

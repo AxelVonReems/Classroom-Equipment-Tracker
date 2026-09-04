@@ -1,0 +1,14 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Spring Boot-ClassroomEquipmentTrackerApplication<backend>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.example.backend.ClassroomEquipmentTrackerApplication",
+            "projectName": "backend",
+            "args": "",
+            "envFile": "${workspaceFolder}/backend/.env"
+        }
+    ]
+}

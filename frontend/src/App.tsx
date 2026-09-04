@@ -1,30 +1,49 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { PhysicalAsset } from './types/Asset';
 import AssetTable from './components/AssetTable';
 import AssetFormModal from './components/AssetFormModal';
 import ConfirmModal from './components/ConfirmModal';
-import { Plus, Loader2 } from 'lucide-react';
+import { Plus, Loader2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
 export default function App() {
   const [assets, setAssets] = useState<PhysicalAsset[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Pagination's Pages
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+
   // Modal States
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
   const [currentAsset, setCurrentAsset] = useState<PhysicalAsset | null>(null);
   const [assetToDelete, setAssetToDelete] = useState<number | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const fetchAssets = () => {
-    fetch('http://localhost:8080/api/assets')
+  const fetchAssets = useCallback(() => {
+    let url = `http://localhost:8080/api/assets?page=${page}&size=10`;
+    if (searchTerm.trim() !== "") {
+      url += `&search=${encodeURIComponent(searchTerm.trim())}`;
+    }
+
+    fetch(url)
       .then(res => res.json())
-      .then(data => { setAssets(data); setLoading(false); });
-  };
+      .then(data => {
+        setAssets(data.content); 
+        setTotalPages(data.totalPages);
+        setLoading(false);
+      });
+  }, [page, searchTerm]);
 
   useEffect(() => {
-    fetchAssets();
-  }, []);
+    const debounceTimer = setTimeout(() => {
+      fetchAssets();
+    }, 500);
+
+    return () => clearTimeout(debounceTimer);
+  }, [fetchAssets]);
 
   // API Handlers
   const handleSaveAsset = (formData: Omit<PhysicalAsset, 'id'>) => {
@@ -94,11 +113,47 @@ export default function App() {
           </button>
         </div>
 
+        <div className="relative mb-6 max-w-md">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-5 w-5 text-gray-400" />
+          </div>
+          <input
+            type="text"
+            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out"
+            placeholder="Search by Name, Category, or Location..."
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setPage(0);
+            }}
+          />
+        </div>
+
         <AssetTable 
           assets={assets} 
           onEdit={(asset) => { setCurrentAsset(asset); setIsFormModalOpen(true); }} 
           onDelete={(id) => { setAssetToDelete(id); setIsDeleteModalOpen(true); }} 
         />
+      </div>
+
+      <div className="flex justify-center gap-4 items-center mt-6">
+        <button 
+          onClick={() => setPage((prev) => Math.max(0, prev - 1))}
+          disabled={page === 0}
+          className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors font-medium cursor-pointer"
+        >
+          <ChevronLeft size={20} />
+        </button>
+        <span className="text-gray-600 font-medium">
+          Page {page + 1} of {totalPages === 0 ? 1 : totalPages}
+        </span>
+        <button
+          onClick={() => setPage((prev) => Math.min(totalPages - 1, prev + 1))}
+          disabled={page >= totalPages - 1 || totalPages === 0}
+          className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors font-medium cursor-pointer"
+        >
+          <ChevronRight size={20} />
+        </button>
       </div>
 
       {isFormModalOpen && (
