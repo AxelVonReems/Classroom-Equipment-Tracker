@@ -30,7 +30,7 @@ public class PhysicalAssetService {
         List<String> allowedConditions = Arrays.asList("Good", "Fair", "Poor", "Unknown");
 
         if (condition == null || !allowedConditions.contains(condition)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid condition. Must be Good, Fair, or Poor.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid condition. Must be Good, Fair, Poor, or Unknown.");
         }
     }
 

@@ -20,7 +20,7 @@ public class PhysicalAsset {
     private String name;
 
     @NotBlank(message = "Category is required and cannot be empty")
-    @Size(min = 3, max = 100, message = "Category must be between 3 and 100 characters")
+    @Size(min = 3, max = 50, message = "Category must be between 3 and 50 characters")
     @Column(nullable = false, length = 50)
     private String category;
 

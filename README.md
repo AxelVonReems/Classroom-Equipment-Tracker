@@ -1,47 +1,47 @@
 # Classroom Equipment Tracker
 
-![Java](https://img.shields.io/badge/Java-21+-ED8B00?style=flat-square&logo=java)
-![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-green?style=flat-square&logo=spring-boot)
-![React](https://img.shields.io/badge/React-19+-61DAFB?style=flat-square&logo=react)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue?style=flat-square&logo=postgresql)
-![TypeScript](https://img.shields.io/badge/TypeScript-5+-blue?style=flat-square&logo=typescript)
-![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
+![Java](https://img.shields.io/badge/Java-21-ED8B00?style=flat-square&logo=openjdk)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.x-6DB33F?style=flat-square&logo=spring-boot)
+![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)
+![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?style=flat-square&logo=typescript)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-4169E1?style=flat-square&logo=postgresql)
 
 ## Project Overview
 
-Classroom Equipment Tracker is an **enterprise-grade full-stack asset management application** designed to streamline inventory tracking for educational institutions. The system provides real-time visibility into physical asset status, condition, and location across classroom spaces, with a focus on performance, data integrity, and developer experience.
+Classroom Equipment Tracker is a full-stack web application for keeping an inventory of classroom equipment. Users can add, edit, delete and search physical assets and track each asset's category, condition and location.
 
-Built as a demonstration of modern software architecture principles, this application showcases best practices in **full-stack development**, including server-side pagination, optimized search operations, dual-layer data validation, and comprehensive test coverage with strict assertion patterns.
+The project demonstrates a layered Spring Boot REST API (controller → service → repository) connected to PostgreSQL, a React + TypeScript frontend, server-side pagination and search, input validation with clear error messages, and unit tests on both the backend and the frontend.
 
 ---
 
 ## Tech Stack
 
 ### Frontend
-- **React 19** — Modern component-based UI framework with hooks for state management
-- **TypeScript** — Static type checking for improved code safety and IDE intelligence
-- **Tailwind CSS** — Utility-first CSS framework for responsive, accessible design
-- **Lucide React** — Lightweight, consistent icon library for intuitive UX
-- **React Hot Toast** — Non-intrusive notification system for user feedback
+- **React 19** with hooks for state management
+- **TypeScript** for static type checking
+- **Vite** as the dev server and build tool
+- **Tailwind CSS 4** for styling
+- **Lucide React** for icons
+- **React Hot Toast** for success and error notifications
 
 ### Backend
-- **Spring Boot 3.x** — Production-grade framework with embedded server and auto-configuration
-- **Spring Data JPA** — ORM abstraction layer with custom JPQL queries for optimized data retrieval
-- **PostgreSQL 15+** — ACID-compliant relational database with constraint enforcement
-- **Jakarta Persistence** — Modern JPA implementation for entity mapping and lifecycle management
+- **Java 21**
+- **Spring Boot 4** (Spring Web MVC, Spring Data JPA, Bean Validation)
+- **Hibernate** as the Jakarta Persistence (JPA) implementation
+- **PostgreSQL** (hosted on Supabase or run locally)
+- **Maven** (via the included Maven Wrapper)
 
-### Testing & Quality Assurance
-- **JUnit 5** — Jupiter testing framework with extension support for advanced test isolation
-- **Mockito** — Mocking framework with ArgumentCaptor for strict behavior verification
-- **Maven** — Build automation and dependency management
+### Testing
+- **Backend:** JUnit Jupiter and Mockito
+- **Frontend:** Vitest and React Testing Library
 
 ---
 
 ## Technical Highlights
 
-### Performance Optimization: Debounced Search
+### Debounced Search
 
-The frontend implements a **500-millisecond debounce strategy** using React's `useCallback` and `useEffect` hooks to prevent excessive API calls during rapid user input:
+The frontend waits **500 ms** after the last change before calling the API, so typing a word sends one request instead of one per keystroke:
 
 ```typescript
 const fetchAssets = useCallback(() => {
@@ -49,7 +49,13 @@ const fetchAssets = useCallback(() => {
   if (searchTerm.trim() !== "") {
     url += `&search=${encodeURIComponent(searchTerm.trim())}`;
   }
-  fetch(url).then(res => res.json()).then(data => setAssets(data.content));
+  fetch(url)
+    .then(res => res.json())
+    .then(data => {
+      setAssets(data.content);
+      setTotalPages(data.totalPages);
+      setLoading(false);
+    });
 }, [page, searchTerm]);
 
 useEffect(() => {
@@ -60,249 +66,219 @@ useEffect(() => {
 }, [fetchAssets]);
 ```
 
-**Impact:** Reduces database load by ~80% on typical search workflows while maintaining responsive UX. The `fetchAssets` memoization prevents unnecessary function recreations, ensuring the debounce timer is properly cleaned up.
+`useCallback` gives `fetchAssets` a new identity only when `page` or `searchTerm` changes, so the effect re-runs only when needed. Each re-run clears the previous timer in the effect's cleanup function, which is what makes the debounce work.
 
 ---
 
-### Server-Side Processing: Native Pagination & Optimized Search
+### Server-Side Pagination and Search
 
-All data filtering and pagination is handled natively by the database layer using **Spring Data JPQL** instead of client-side filtering:
+Filtering and pagination happen in the database, not in the browser. The repository uses a JPQL query that searches name, category and location case-insensitively:
 
 ```java
 @Query(
-  "SELECT p FROM PhysicalAsset p WHERE " +
-  "LOWER(p.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-  "LOWER(p.category) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-  "LOWER(p.location) LIKE LOWER(CONCAT('%', :searchTerm, '%'))"
+    "SELECT p FROM PhysicalAsset p WHERE " +
+    "LOWER(p.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+    "LOWER(p.category) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+    "LOWER(p.location) LIKE LOWER(CONCAT('%', :searchTerm, '%'))"
 )
 Page<PhysicalAsset> searchAssets(@Param("searchTerm") String searchParam, Pageable pageable);
 ```
 
-**Architectural Benefits:**
-- Database query optimizer reduces result sets before transferring to application layer
-- Pagination via `PageRequest` ensures only requested data is serialized (default: 10 items/page)
-- Case-insensitive search with `LOWER()` improves UX without sacrificing performance
-- Scalable to millions of records without client-side memory overhead
+The service builds a `PageRequest` (default 10 items per page, sorted by `id`) and calls `searchAssets` when a search term is provided, or `findAll` otherwise. Only the requested page is sent to the client, together with the total page count used by the pagination controls.
 
 ---
 
-### Airtight Data Integrity: Dual-Layer Validation
+### Validation and Data Normalization
 
-Data integrity is enforced at **two independent layers**, preventing invalid data from reaching the database:
+Incoming data is checked at several points:
 
-#### Layer 1: Spring Boot Annotations (Runtime Validation)
-```java
-@Entity
-@Table(name = "physical_assets")
-public class PhysicalAsset {
+1. **Bean Validation on the entity**, triggered by `@Valid` in the controller:
 
-  @NotBlank(message = "Name is required")
-  @Size(min = 3, max = 100, message = "Name must be between 3 and 100 characters")
-  @Column(nullable = false, length = 100)
-  private String name;
+   ```java
+   @NotBlank(message = "Name is required and cannot be empty")
+   @Size(min = 3, max = 100, message = "Name must be between 3 and 100 characters")
+   @Column(nullable = false, length = 100)
+   private String name;
 
-  @Pattern(regexp = "^(Good|Fair|Poor|Unknown)$", 
-           message = "Condition must be Good, Fair, Poor, or Unknown")
-  @Column(nullable = false, length = 50)
-  private String condition;
-}
-```
+   @NotBlank(message = "Condition is required")
+   @Pattern(regexp = "^(Good|Fair|Poor|Unknown)$", message = "Condition must be Good, Fair, Poor, or Unknown")
+   @Column(name = "asset_condition", nullable = false, length = 50)
+   private String condition = "Unknown";
+   ```
 
-#### Layer 2: PostgreSQL Constraints (Database-Level Enforcement)
-- `NOT NULL` constraints on critical fields (`name`, `category`, `condition`)
-- `CHECK` constraints enforcing condition enumeration at the database level
-- Column length constraints (`length = 100`) prevent buffer overflows
-- Foreign key constraints (extensible for future relationships)
-
-**Result:** Invalid data cannot bypass either layer. Malformed API requests are rejected by Spring Boot; direct database manipulation is blocked by PostgreSQL constraints.
+2. **A global exception handler** (`@RestControllerAdvice`) turns validation failures into a `400 Bad Request` with a field → message map (for example `{"name": "Name must be between 3 and 100 characters"}`).
+3. **Service-layer checks**: the service validates the condition again, returns `404 Not Found` for missing assets, and normalizes text before saving (trims whitespace, converts to title case, and stores empty optional fields as `null`). For example, `"  cOmPUter MoNItor  "` is saved as `"Computer Monitor"`.
+4. **Database columns** are created with `NOT NULL` and length limits based on the `@Column` mappings.
 
 ---
 
-### Robust Testing: Strict Behavior Verification
+### Unit Tests
 
-Comprehensive test coverage using **JUnit 5** and **Mockito** with enterprise-grade assertions:
+**Backend** ([PhysicalAssetServiceTest.java](backend/src/test/java/com/example/backend/service/PhysicalAssetServiceTest.java)) tests the service with a mocked repository:
 
-#### Example 1: Text Normalization Testing with ArgumentCaptor
+- Text normalization before saving, verified with an `ArgumentCaptor`
+- `updateAsset` throws `ResponseStatusException` with status `404` for an unknown ID
+- `getAllAssets` calls the search query when a search term is provided
+
 ```java
 @Test
 void addAsset_ShouldNormalizeTextBeforeSaving() {
     PhysicalAsset messyAsset = new PhysicalAsset();
     messyAsset.setName("  cOmPUter MoNItor  ");
     messyAsset.setCategory("  eLEctronics ");
-    
+    messyAsset.setCondition("Good");
+    messyAsset.setLocation("   ");
+
+    when(repository.save(any(PhysicalAsset.class))).thenReturn(messyAsset);
+
     service.addAsset(messyAsset);
-    
+
     ArgumentCaptor<PhysicalAsset> assetCaptor = ArgumentCaptor.forClass(PhysicalAsset.class);
     verify(repository).save(assetCaptor.capture());
-    
+
     PhysicalAsset capturedAsset = assetCaptor.getValue();
-    assertEquals("Computer monitor", capturedAsset.getName());
+
+    assertEquals("Computer Monitor", capturedAsset.getName());
     assertEquals("Electronics", capturedAsset.getCategory());
+    assertEquals("Good", capturedAsset.getCondition(), "Condition should remain untouched");
+    assertNull(capturedAsset.getLocation(), "Empty location should be converted to null");
 }
 ```
 
-**Key Technique:** `ArgumentCaptor` intercepts the exact object passed to the repository, allowing assertion of **intermediate data transformations** rather than just method invocation.
+The `ArgumentCaptor` captures the exact object passed to `repository.save()`, so the test checks the transformed data, not just that the method was called.
 
-#### Example 2: HTTP Status Code Verification
-```java
-@Test
-void updateAsset_ShouldThrow404_WhenAssetNotFound() {
-    when(repository.findById(99L)).thenReturn(Optional.empty());
-    
-    ResponseStatusException exception = assertThrows(
-        ResponseStatusException.class, 
-        () -> service.updateAsset(99L, updateData)
-    );
-    
-    assertEquals(HttpStatus.NOT_FOUND, exception.getStatus());
-}
-```
+**Frontend** ([`src/__tests__/`](frontend/src/__tests__/)) tests components with React Testing Library:
 
-**Benefit:** Tests verify **specific HTTP status codes** (404, 400, etc.), not just exception types. This ensures REST contract compliance and prevents silent degradation of error responses.
-
-**Test Coverage:**
-- Text normalization with whitespace trimming and title-casing
-- Condition enum validation with rejection of invalid states
-- 404 responses for missing resources with exact status assertion
-- Search routing: correct repository method invoked based on search term presence
-- Pagination: correct page size and sorting applied
+- `Pagination`: shows the current and total page, calls `setPage` when *Next* is clicked, and disables *Next* on the last page
+- `SearchBar`: calls `onSearchChange` as the user types
 
 ---
 
-### Clean Component Architecture
+### Component Structure
 
-The React frontend is organized into **modularized, single-responsibility components** with clear data flow:
+The frontend is split into small components. `App.tsx` holds the state and API calls; the components receive data through props and report user actions through callbacks.
 
 ```
-src/
+frontend/src/
 ├── components/
-│   ├── AssetTable.tsx          # Data display with sortable columns
-│   ├── AssetFormModal.tsx       # Reusable form for create/edit operations
-│   ├── ConfirmModal.tsx         # Polymorphic confirmation dialog
-│   ├── SearchBar.tsx            # Debounced search input
-│   ├── Pagination.tsx           # Page navigation controls
-│   └── Header.tsx               # Application branding
+│   ├── AssetTable.tsx        # Table of assets with edit and delete actions
+│   ├── AssetFormModal.tsx    # Shared form for creating and editing assets
+│   ├── ConfirmModal.tsx      # Reusable confirmation dialog (used for delete)
+│   ├── SearchBar.tsx         # Search input
+│   ├── Pagination.tsx        # Previous / Next page controls
+│   └── Header.tsx            # Page header
 ├── types/
-│   └── Asset.ts                 # Centralized TypeScript interfaces
-├── App.tsx                      # State orchestration & API integration
-└── main.tsx                     # Entry point
+│   └── Asset.ts              # PhysicalAsset TypeScript interface
+├── __tests__/                # Vitest + React Testing Library tests
+├── App.tsx                   # State, data fetching and debounced search
+└── main.tsx                  # Entry point
 ```
-
-**Architectural Principles:**
-- **Separation of Concerns:** Components manage UI logic; App.tsx manages state and API orchestration
-- **Type Safety:** Single source of truth for asset shape via `Asset.ts` interface
-- **Composition:** Modals and dialogs are composable and reusable across features
-- **Unidirectional Data Flow:** Parent-to-child props, child-to-parent callbacks via event handlers
 
 ---
 
 ## Getting Started (Local Setup)
 
 ### Prerequisites
-- **Java 21 or higher** — [Download](https://www.oracle.com/java/technologies/javase-jdk17-downloads.html)
-- **Node.js 18 or higher** — [Download](https://nodejs.org/)
-- **PostgreSQL 15 or higher** — [Download](https://www.postgresql.org/download/) or use [Supabase](https://supabase.com/)
-- **Maven 3.9+** (included with Spring Boot starter projects)
-- **Git** — For version control
+- **Java 21** ([Eclipse Temurin](https://adoptium.net/) or any other JDK 21). If you use SDKMAN, the repository includes a `.sdkmanrc` file.
+- **Node.js 20.19+ or 22.12+** ([Download](https://nodejs.org/))
+- **PostgreSQL**: a free [Supabase](https://supabase.com/) project or a local [PostgreSQL](https://www.postgresql.org/download/) installation
+
+Maven doesn't need to be installed separately, because the project includes the Maven Wrapper (`mvnw`).
 
 ### Step 1: Clone the Repository
 
 ```bash
 git clone https://github.com/AxelVonReems/Classroom-Equipment-Tracker.git
-cd classroom-equipment-tracker
+cd Classroom-Equipment-Tracker
 ```
 
-### Step 2: Set Up PostgreSQL Database
+### Step 2: Set Up the Database
 
-#### Option A: Local PostgreSQL Installation
+#### Option A: Supabase
 
-```bash
-# Create database and user (run in psql or pgAdmin)
+1. Create a free account and a new project at [supabase.com](https://supabase.com/).
+2. Open **Connect** in the project dashboard and copy the host, port, database name, user and password.
+
+#### Option B: Local PostgreSQL
+
+Run the following in `psql` (or pgAdmin):
+
+```sql
 CREATE DATABASE classroom_equipment_tracker;
-CREATE USER tracker_user WITH PASSWORD 'secure_password_here';
+CREATE USER tracker_user WITH PASSWORD 'your_password_here';
 GRANT ALL PRIVILEGES ON DATABASE classroom_equipment_tracker TO tracker_user;
+\c classroom_equipment_tracker
+GRANT ALL ON SCHEMA public TO tracker_user;
 ```
 
-#### Option B: Supabase Cloud Database (Recommended)
+The table is created automatically on first start (`spring.jpa.hibernate.ddl-auto=update`).
 
-1. Create a free account at [Supabase.com](https://supabase.com/)
-2. Create a new project and note the database credentials
-3. Connection string format: `postgresql://user:password@host:5432/database`
+### Step 3: Configure Environment Variables
 
-### Step 3: Configure Backend Environment Variables
+Create a `.env` file in the `backend/` directory. It is listed in `.gitignore`, so your credentials won't be committed.
 
-Create a `.env` file in the `backend/` directory with your database credentials:
+**Supabase:**
 
 ```properties
-# Database Configuration
-SUPABASE_DB_URL=postgresql://user:password@your-host.supabase.co:5432/postgres
+SUPABASE_DB_URL=jdbc:postgresql://db.your-project-ref.supabase.co:5432/postgres
 SUPABASE_DB_USERNAME=postgres
 SUPABASE_DB_PASSWORD=your_password_here
 ```
 
-The `application.properties` file will automatically load these environment variables via Spring's configuration import feature.
+**Local PostgreSQL:**
 
-### Step 4: Start the Spring Boot Backend
+```properties
+SUPABASE_DB_URL=jdbc:postgresql://localhost:5432/classroom_equipment_tracker
+SUPABASE_DB_USERNAME=tracker_user
+SUPABASE_DB_PASSWORD=your_password_here
+```
 
-Navigate to the backend directory and run the application:
+The URL must start with `jdbc:postgresql://`, and the username and password go in their own variables, not in the URL. `application.properties` loads this file with `spring.config.import=optional:file:.env[.properties]`, so start the backend from the `backend/` directory.
+
+### Step 4: Start the Backend
 
 ```bash
 cd backend
-
-# Using Maven wrapper (no Maven installation required)
 ./mvnw spring-boot:run
 ```
 
-**Expected Output:**
-```
-Started ClassroomEquipmentTrackerApplication in X.XXX seconds
-```
+On Windows, use `mvnw.cmd spring-boot:run`.
 
-The backend API will be available at `http://localhost:8080`
+When you see `Started ClassroomEquipmentTrackerApplication in ... seconds`, the API is available at `http://localhost:8080`.
 
-**Available Endpoints:**
-- `GET /api/assets?page=0&size=10` — Fetch all assets with pagination
-- `GET /api/assets?search=desk&page=0&size=10` — Search assets
-- `GET /api/assets/{id}` — Fetch single asset
-- `POST /api/assets` — Create new asset
-- `PUT /api/assets/{id}` — Update existing asset
-- `DELETE /api/assets/{id}` — Delete asset
+**API Endpoints:**
 
-### Step 5: Start the React Frontend
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/assets?page=0&size=10` | List assets (paginated) |
+| `GET` | `/api/assets?search=desk&page=0&size=10` | Search by name, category or location |
+| `GET` | `/api/assets/{id}` | Get one asset |
+| `POST` | `/api/assets` | Create an asset |
+| `PUT` | `/api/assets/{id}` | Update an asset |
+| `DELETE` | `/api/assets/{id}` | Delete an asset |
 
-In a new terminal, navigate to the frontend directory:
+### Step 5: Start the Frontend
+
+In a new terminal:
 
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
-
-# Start development server with hot module replacement
 npm run dev
 ```
 
-**Expected Output:**
-```
-VITE v5.x.x  ready in XXX ms
+Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-➜  Local:   http://localhost:5173/
-```
+### Step 6: Run the Tests
 
-Open `http://localhost:5173/` in your browser to access the application.
-
-### Step 6: Run Tests (Optional)
-
-**Backend Tests:**
 ```bash
+# Backend
 cd backend
 ./mvnw test
-```
 
-**Frontend Tests (if configured):**
-```bash
+# Frontend
 cd frontend
-npm run test
+npm test
 ```
 
 ---
@@ -311,51 +287,52 @@ npm run test
 
 ```
 .
-├── backend/                          # Spring Boot REST API
-│   ├── src/main/java/...
-│   │   ├── controller/               # REST endpoints
-│   │   ├── service/                  # Business logic & validation
-│   │   ├── repository/               # Data access layer (JPA)
-│   │   ├── model/                    # JPA entities with constraints
-│   │   └── exception/                # Global error handling
-│   ├── src/test/java/...             # JUnit 5 & Mockito tests
-│   ├── pom.xml                       # Maven dependencies & plugins
-│   └── mvnw                          # Maven wrapper
+├── backend/                                  # Spring Boot REST API
+│   ├── src/main/java/com/example/backend/
+│   │   ├── controller/                       # REST endpoints
+│   │   ├── service/                          # Business logic, validation, normalization
+│   │   ├── repository/                       # Spring Data JPA repository
+│   │   ├── model/                            # JPA entity with validation annotations
+│   │   └── exception/                        # Global exception handler
+│   ├── src/main/resources/
+│   │   └── application.properties            # Database and JPA configuration
+│   ├── src/test/java/com/example/backend/    # JUnit and Mockito tests
+│   ├── pom.xml                               # Maven dependencies and plugins
+│   └── mvnw, mvnw.cmd                        # Maven Wrapper
 │
-├── frontend/                         # React + TypeScript SPA
-│   ├── src/
-│   │   ├── components/               # Reusable React components
-│   │   ├── types/                    # TypeScript interfaces
-│   │   ├── App.tsx                   # Main application component
-│   │   └── main.tsx                  # React entry point
-│   ├── package.json                  # npm dependencies
-│   ├── tsconfig.json                 # TypeScript configuration
-│   └── vite.config.ts                # Vite build configuration
+├── frontend/                                 # React + TypeScript app
+│   ├── src/                                  # Components, types and tests (see above)
+│   ├── package.json                          # npm dependencies and scripts
+│   ├── tsconfig.json                         # TypeScript configuration
+│   └── vite.config.ts                        # Vite configuration
 │
-└── README.md                         # This file
+└── README.md
 ```
 
 ---
 
-## Architecture Decisions
+## Design Decisions
 
-### Why Server-Side Pagination?
+### Why server-side pagination?
+- Only one page of data is sent over the network, regardless of how many assets exist.
+- The browser doesn't need to hold the whole inventory in memory.
+- Search and pagination work together in a single database query.
 
-**Scalability** — Handles millions of records without client memory overhead  
-**Network Efficiency** — Only requested data transferred over the wire  
-**Database Optimization** — Query planner can use indexes effectively  
-**Security** — User cannot bypass limits or access unauthorized data ranges  
+### Why validate in several places?
+- Bean Validation returns clear, field-specific error messages to the client.
+- Service-layer checks protect the business rules even if the service is called from somewhere other than the controller.
+- Database `NOT NULL` and length limits are a final safety net.
 
-### Why Dual-Layer Validation?
+### Why debounce the search?
+- Typing a word sends one request instead of one per keystroke.
+- Fewer requests means less load on the API and the database.
 
-**Defense in Depth** — Invalid data rejected at application AND database layers  
-**API Contract Enforcement** — Spring annotations provide immediate feedback to clients  
-**Data Integrity Guarantee** — PostgreSQL constraints prevent invalid data even from direct database access  
-**Maintainability** — Validation rules are co-located with entity definitions  
+---
 
-### Why Debounced Search?
+## Known Limitations and Next Steps
 
-**UX Responsiveness** — Users see instant visual feedback while typing  
-**Database Efficiency** — Reduces query load by 80%+ on typical search workflows  
-**Network Optimization** — Fewer HTTP requests, lower bandwidth usage  
-**Cost Reduction** — Fewer database transactions = lower cloud hosting costs
+- **Search performance:** `LIKE '%term%'` can't use a normal B-tree index, so search scans the whole table. For large datasets, a PostgreSQL trigram (`pg_trgm`) index or full-text search would help.
+- **Page size limit:** the API doesn't cap the `size` parameter yet.
+- **Configuration:** the API URL (`http://localhost:8080`) is hardcoded in the frontend and would move to a Vite environment variable for deployment.
+- **Authentication:** there is no login or role-based access yet.
+- **Tests:** next steps are controller tests with MockMvc and repository tests against a real PostgreSQL database (for example with Testcontainers).
